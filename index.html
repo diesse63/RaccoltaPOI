@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mappa POI Interattiva</title>
 
-<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
 <style>
@@ -43,7 +42,7 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk3iGqXsnobTpPMhTfiqyUDs-WVkeqtiypaWvVH6zGZp8c7pbOFgKkPJXVQsDNrZih/exec';
+const GAS_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYED_WEBAPP_ID/exec';
 let map, marker, poiLayerGroup, tipologie = [];
 
 // ---------------- MAPPA ----------------
@@ -75,8 +74,7 @@ async function loadTipologie() {
   try {
     const res = await fetch(`${GAS_URL}?action=listTipologia`);
     const data = await res.json();
-    // Assumiamo che la colonna B si chiami "Tipo"
-    tipologie = data.map(t => ({id: t.IDTipo, nome: t.Tipo || t['B'] || t['ColonnaB']}));
+    tipologie = data.map(t => ({id: t.IDTipo, nome: t.Tipo}));
   } catch(e) { console.error("Errore caricamento tipologie:", e); }
 }
 
@@ -151,9 +149,8 @@ window.initMapAndAutocomplete = function() {
 }
 </script>
 
-<!-- Google Maps JS API con callback -->
 <script async
-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places&callback=initMapAndAutocomplete">
+src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places&callback=initMapAndAutocomplete">
 </script>
 
 </body>
