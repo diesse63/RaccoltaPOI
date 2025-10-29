@@ -1,256 +1,116 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mappa POI - Viaggio</title>
-  <!-- Leaflet -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mappa POI Interattiva</title>
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
   <style>
-    html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif}
-    #map{height:100%;width:100%}
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+    }
 
-    .topbar{position:absolute;left:0;right:0;top:8px;display:flex;align-items:center;justify-content:center;padding:0 8px;z-index:1000}
-    .searchbox{width:min(720px,calc(100% - 140px));max-width:95%;}
-    .searchbox input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #ccc;font-size:16px}
+    /* Barra di ricerca compatta e centrata */
+    #search-container {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-    .leftpanel{position:absolute;top:8px;left:8px;z-index:1000;background:rgba(255,255,255,0.95);padding:6px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.15)}
-    .leftpanel select{min-width:180px;padding:6px;border-radius:6px;border:1px solid #bbb}
+    #pac-input {
+      width: 250px;
+      padding: 5px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
 
-    .legend{position:absolute;right:8px;bottom:8px;z-index:1000;background:rgba(255,255,255,0.95);padding:10px;border-radius:8px;max-width:220px;box-shadow:0 2px 6px rgba(0,0,0,0.15);font-size:14px}
-    .legend .item{display:flex;align-items:center;margin:6px 0}
-    .legend .swatch{width:18px;height:18px;border-radius:50%;margin-right:8px;border:1px solid #888}
+    #add-poi-btn {
+      padding: 5px 10px;
+      background-color: #0078d7;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
 
-    .poi-form label{display:block;margin:6px 0 2px;font-weight:600;font-size:13px}
-    .poi-form input[type=text],.poi-form textarea,.poi-form select{width:100%;box-sizing:border-box;padding:6px;border-radius:6px;border:1px solid #ccc}
-    .poi-form textarea{resize:vertical}
-    .btn{display:inline-block;padding:8px 12px;border-radius:6px;border:0;background:#1976d2;color:#fff;cursor:pointer}
-    .btn.secondary{background:#6c757d}
-
-    @media (max-width:600px){
-      .leftpanel select{min-width:140px}
-      .searchbox{width:calc(100% - 40px)}
+    #add-poi-btn:hover {
+      background-color: #005fa3;
     }
   </style>
 </head>
 <body>
+
+  <!-- Contenitore barra di ricerca -->
+  <div id="search-container">
+    <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
+    <button id="add-poi-btn">Aggiungi POI</button>
+  </div>
+
+  <!-- Contenitore mappa -->
   <div id="map"></div>
-
-  <div class="topbar">
-    <div class="searchbox">
-      <input id="pac-input" type="text" placeholder="Cerca un luogo (Google Places)..." autocomplete="off" />
-    </div>
-  </div>
-
-  <div class="leftpanel">
-    <select id="localita-select">
-      <option value="">-- Seleziona località --</option>
-    </select>
-  </div>
-
-  <div class="legend" id="legend">
-    <strong>Legenda tipologie</strong>
-    <div id="legend-items"></div>
-  </div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <script>
-  // ------------------- CONFIGURAZIONE -------------------
-  const GAS_URL = ''; // Inserisci qui il tuo WebApp URL di Google Apps Script
-  const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
-  const DEFAULT_ZOOM = 15;
-  // -----------------------------------------------------
+    let map;
+    let marker;
 
-  const map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom: 19,
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
+    function initAutocomplete() {
+      console.log("Inizializzazione Google Autocomplete...");
 
-  let tipologie = [];
-  let localita = [];
-  let poi = [];
-  let poiLayerGroup = L.layerGroup().addTo(map);
+      map = L.map('map').setView([41.8719, 12.5674], 6); // Italia centrata
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
 
-  function parseCoords(s){
-    if(!s) return null;
-    const parts = s.toString().split(',').map(p=>p.trim());
-    if(parts.length<2) return null;
-    const lat = parseFloat(parts[0]);
-    const lng = parseFloat(parts[1]);
-    if(isNaN(lat)||isNaN(lng)) return null;
-    return [lat,lng];
-  }
+      const input = document.getElementById("pac-input");
+      const autocomplete = new google.maps.places.Autocomplete(input);
 
-  async function loadTipologie(){
-    try{
-      if(!GAS_URL) throw new Error('GAS_URL non impostato');
-      const res = await fetch(`${GAS_URL}?action=listTipologia`);
-      const data = await res.json();
-      tipologie = data.map(r=>({IDTipo: r.IDTipo, Tipo: r.Tipo, Colore: r.Colore}));
-      renderLegend();
-    }catch(err){
-      console.warn('Impossibile caricare tipologie:',err);
-    }
-  }
-
-  async function loadLocalita(){
-    try{
-      if(!GAS_URL) throw new Error('GAS_URL non impostato');
-      const res = await fetch(`${GAS_URL}?action=listLocalita`);
-      const data = await res.json();
-      localita = data.map(r=>({IDLocalita:r.IDLocalita, Localita:r.Localita, Coordinate:r.Coordinate}));
-      const sel = document.getElementById('localita-select');
-      sel.innerHTML = '<option value="">-- Seleziona località --</option>';
-      localita.forEach(l=>{
-        const opt = document.createElement('option');
-        opt.value = l.IDLocalita;
-        opt.textContent = l.Localita;
-        opt.dataset.coords = l.Coordinate;
-        sel.appendChild(opt);
-      });
-    }catch(err){
-      console.warn('Impossibile caricare localita:',err);
-    }
-  }
-
-  async function loadPOI(){
-    try{
-      if(!GAS_URL) throw new Error('GAS_URL non impostato');
-      const res = await fetch(`${GAS_URL}?action=listPOI`);
-      const data = await res.json();
-      poi = data;
-      renderPOI();
-    }catch(err){
-      console.warn('Impossibile caricare POI:',err);
-    }
-  }
-
-  function tipologiaById(id){
-    return tipologie.find(t=>String(t.IDTipo)===String(id)) || {Tipo:'Sconosciuto', Colore:'blue'};
-  }
-
-  function renderPOI(){
-    poiLayerGroup.clearLayers();
-    poi.forEach(p=>{
-      const coords = parseCoords(p.Coordinate);
-      if(!coords) return;
-      const t = tipologiaById(p.IDTipo);
-      const circle = L.circleMarker(coords, {radius:8, fill:true, weight:1, color:'#333', fillOpacity:0.9}).addTo(poiLayerGroup);
-      circle.setStyle({fillColor: t.Colore});
-      const popupHtml = `<strong>${escapeHtml(p.Name||'')}</strong><br><em>${t.Tipo||''}</em><br>${escapeHtml(p.Note||'')}<br>${p.Link?`<a href="${escapeHtmlAttr(p.Link)}" target="_blank">Link</a>`:''}`;
-      circle.bindPopup(popupHtml);
-    });
-  }
-
-  function renderLegend(){
-    const container = document.getElementById('legend-items');
-    container.innerHTML='';
-    tipologie.forEach(t=>{
-      const div = document.createElement('div');
-      div.className='item';
-      const sw = document.createElement('div'); sw.className='swatch'; sw.style.background = t.Colore || 'gray';
-      const txt = document.createElement('div'); txt.textContent = t.Tipo;
-      div.appendChild(sw); div.appendChild(txt);
-      container.appendChild(div);
-    });
-  }
-
-  function escapeHtml(s){ return s ? s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])) : ''; }
-  function escapeHtmlAttr(s){ return s ? s.replace(/"/g,'\"') : s; }
-
-  document.getElementById('localita-select').addEventListener('change', function(e){
-    const sel = e.target;
-    const opt = sel.options[sel.selectedIndex];
-    if(opt && opt.dataset && opt.dataset.coords){
-      const coords = parseCoords(opt.dataset.coords);
-      if(coords){ map.setView(coords, DEFAULT_ZOOM); }
-    }
-  });
-
-  // Inizializzazione Google Autocomplete (chiamata via callback async)
-  function initAutocomplete(){
-    try {
-      const input = document.getElementById('pac-input');
-      const autocomplete = new google.maps.places.Autocomplete(input, {types: ['geocode','establishment']});
-      autocomplete.addListener('place_changed', () => {
+      autocomplete.addListener("place_changed", function () {
         const place = autocomplete.getPlace();
-        if(!place.geometry){ alert('Luogo senza geometria'); return; }
+        if (!place.geometry) {
+          alert("Nessun dettaglio disponibile per: '" + place.name + "'");
+          return;
+        }
+
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
-        const name = place.name || input.value;
-        map.setView([lat,lng], 17);
-        openPoiForm({lat, lng, name});
+        const name = place.name;
+
+        if (marker) map.removeLayer(marker);
+        marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
+        map.setView([lat, lng], 14);
+
+        console.log(`Luogo selezionato: ${name} (${lat}, ${lng})`);
       });
-      console.log('Google Autocomplete inizializzato');
-    } catch (e) {
-      console.error('Errore inizializzazione Google Autocomplete:', e);
+
+      console.log("Mappa caricata correttamente");
     }
-  }
-
-  function openPoiForm({lat,lng,name}){
-    const form = document.createElement('div');
-    form.className='poi-form';
-    const html = `
-      <label>Nome</label>
-      <input id="form-name" type="text" value="${escapeHtmlAttr(name)}" />
-      <label>Tipologia</label>
-      <select id="form-tipologia">${tipologie.map(t=>`<option value="${t.IDTipo}">${escapeHtmlAttr(t.Tipo)}</option>`).join('')}</select>
-      <label>Note</label>
-      <textarea id="form-note" rows="3"></textarea>
-      <label>Link</label>
-      <input id="form-link" type="text" placeholder="https://..." />
-      <div style="margin-top:8px;text-align:right">
-        <button id="btn-canc" class="btn secondary">Annulla</button>
-        <button id="btn-save" class="btn">Salva POI</button>
-      </div>`;
-    form.innerHTML = html;
-    const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map);
-
-    document.getElementById('btn-canc').addEventListener('click', ()=>{ map.closePopup(); });
-    document.getElementById('btn-save').addEventListener('click', async ()=>{
-      const payload = {
-        Name: document.getElementById('form-name').value.trim(),
-        Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`,
-        IDTipo: document.getElementById('form-tipologia').value,
-        Note: document.getElementById('form-note').value.trim(),
-        Link: document.getElementById('form-link').value.trim()
-      };
-      try{
-        await savePOI(payload);
-        alert('POI salvato');
-        map.closePopup();
-        await loadPOI();
-      }catch(err){
-        alert('Errore salvataggio: '+err.message);
-      }
-    });
-  }
-
-  async function savePOI(obj){
-    if(!GAS_URL) throw new Error('GAS_URL non impostato');
-    const res = await fetch(`${GAS_URL}?action=savePOI`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(obj)
-    });
-    const data = await res.json();
-    if(data.success===false) throw new Error(data.message || 'Errore server');
-    return data;
-  }
-
-  (async function(){
-    console.log("Caricamento mappa in corso...");
-    await loadTipologie();
-    await loadLocalita();
-    await loadPOI();
-    console.log("Mappa caricata correttamente");
-  })();
   </script>
 
-  <!-- Google Maps JavaScript API (caricamento asincrono con callback) -->
+  <!-- Google Maps JS API con callback -->
   <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places&callback=initAutocomplete">
   </script>
