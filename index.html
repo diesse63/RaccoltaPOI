@@ -1,122 +1,163 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mappa POI Interattiva</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mappa POI Interattiva</title>
 
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-    }
-    #map {
-      height: 100%;
-      width: 100%;
-    }
+<style>
+html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
+#map { height: 100%; width: 100%; }
 
-    /* Barra di ricerca compatta e centrata */
-    #search-container {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: 6px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-      padding: 6px 10px;
-    }
+/* Barra di ricerca compatta e centrata */
+#search-container {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  padding: 6px 10px;
+}
 
-    #pac-input {
-      width: 250px;
-      padding: 5px 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-  </style>
+#pac-input { width: 250px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+
+.poi-form input, .poi-form textarea, .poi-form select {
+  width: 100%; padding: 6px; margin: 4px 0; border-radius: 4px; border: 1px solid #ccc;
+}
+.poi-form textarea { resize: vertical; }
+.btn { display:inline-block; padding:6px 10px; border-radius:4px; border:none; cursor:pointer; background:#1976d2; color:#fff; }
+.btn.secondary { background:#6c757d; }
+</style>
 </head>
 <body>
 
-  <div id="search-container">
-    <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
-  </div>
+<div id="search-container">
+  <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
+</div>
 
-  <div id="map"></div>
+<div id="map"></div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <script>
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk3iGqXsnobTpPMhTfiqyUDs-WVkeqtiypaWvVH6zGZp8c7pbOFgKkPJXVQsDNrZih/exec';
-    let map, marker, poiLayerGroup;
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk3iGqXsnobTpPMhTfiqyUDs-WVkeqtiypaWvVH6zGZp8c7pbOFgKkPJXVQsDNrZih/exec';
+let map, marker, poiLayerGroup, tipologie = [];
 
-    function initMap() {
-      map = L.map('map').setView([41.8719, 12.5674], 6); // Italia centrata
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
+// ---------------- MAPPA ----------------
+function initMap() {
+  map = L.map('map').setView([41.8719, 12.5674], 6); // Italia centrata
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+  poiLayerGroup = L.layerGroup().addTo(map);
+  loadTipologie();
+  loadPOI();
+}
 
-      poiLayerGroup = L.layerGroup().addTo(map);
+// ---------------- GOOGLE PLACES ----------------
+function initAutocomplete() {
+  const input = document.getElementById("pac-input");
+  const autocomplete = new google.maps.places.Autocomplete(input);
 
-      loadPOI(); // Carica POI dallo Sheet
-    }
+  autocomplete.addListener("place_changed", function () {
+    const place = autocomplete.getPlace();
+    if (!place.geometry) { alert("Nessun dettaglio disponibile per: '" + place.name + "'"); return; }
 
-    function initAutocomplete() {
-      const input = document.getElementById("pac-input");
-      const autocomplete = new google.maps.places.Autocomplete(input);
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    openPoiForm({lat, lng, name: place.name});
+  });
+}
 
-      autocomplete.addListener("place_changed", function () {
-        const place = autocomplete.getPlace();
-        if (!place.geometry) {
-          alert("Nessun dettaglio disponibile per: '" + place.name + "'");
-          return;
-        }
+// ---------------- CARICAMENTO TIPLOGIE ----------------
+async function loadTipologie() {
+  try {
+    const res = await fetch(`${GAS_URL}?action=listTipologia`);
+    const data = await res.json();
+    tipologie = data.map(t => ({id: t.IDTipo, nome: t.Tipo}));
+  } catch(e) { console.error("Errore caricamento tipologie:", e); }
+}
 
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        const name = place.name;
+// ---------------- CARICAMENTO POI ----------------
+async function loadPOI() {
+  try {
+    const res = await fetch(`${GAS_URL}?action=listPOI`);
+    const data = await res.json();
+    poiLayerGroup.clearLayers();
+    data.forEach(p => {
+      if(!p.Coordinate) return;
+      const coords = p.Coordinate.split(',').map(Number);
+      if(coords.length < 2) return;
+      const popupContent = `<b>${p.Name}</b><br>${p.Note||''}<br>${p.Link ? `<a href="${p.Link}" target="_blank">Link</a>` : ''}`;
+      L.marker(coords).addTo(poiLayerGroup).bindPopup(popupContent);
+    });
+  } catch(e) { console.error("Errore caricamento POI:", e); }
+}
 
-        if (marker) map.removeLayer(marker);
-        marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
-        map.setView([lat, lng], 14);
+// ---------------- FORM PER NUOVO POI ----------------
+function openPoiForm({lat, lng, name}) {
+  const form = document.createElement('div');
+  form.className = 'poi-form';
+  form.innerHTML = `
+    <label>Nome</label>
+    <input id="form-name" type="text" value="${name}" />
+    <label>Tipo</label>
+    <select id="form-tipologia">
+      ${tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('')}
+    </select>
+    <label>Note</label>
+    <textarea id="form-note" rows="3"></textarea>
+    <label>Link</label>
+    <input id="form-link" type="text" placeholder="https://..." />
+    <div style="margin-top:6px; text-align:right;">
+      <button id="btn-canc" class="btn secondary">Annulla</button>
+      <button id="btn-save" class="btn">Salva POI</button>
+    </div>
+  `;
+
+  const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map);
+
+  document.getElementById('btn-canc').addEventListener('click', ()=>map.closePopup());
+  document.getElementById('btn-save').addEventListener('click', async ()=>{
+    const payload = {
+      Name: document.getElementById('form-name').value.trim(),
+      Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`,
+      IDTipo: document.getElementById('form-tipologia').value,
+      Note: document.getElementById('form-note').value.trim(),
+      Link: document.getElementById('form-link').value.trim()
+    };
+    try {
+      const res = await fetch(`${GAS_URL}?action=savePOI`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
       });
-    }
+      const data = await res.json();
+      if(data.success === false) throw new Error(data.message || 'Errore server');
+      alert('POI salvato');
+      map.closePopup();
+      await loadPOI();
+    } catch(e) { alert('Errore salvataggio: '+e.message); }
+  });
+}
 
-    async function loadPOI() {
-      try {
-        const res = await fetch(`${GAS_URL}?action=listPOI`);
-        const data = await res.json();
-        data.forEach(p => {
-          if(!p.Coordinate) return;
-          const coords = p.Coordinate.split(',').map(Number);
-          if(coords.length < 2) return;
+// ---------------- INIZIALIZZAZIONE ----------------
+window.initMapAndAutocomplete = function() {
+  initMap();
+  initAutocomplete();
+  console.log("Mappa e autocomplete inizializzati");
+}
+</script>
 
-          const popupContent = `<b>${p.Name}</b><br>${p.Note||''}<br>${p.Link ? `<a href="${p.Link}" target="_blank">Link</a>` : ''}`;
-          L.marker(coords).addTo(poiLayerGroup).bindPopup(popupContent);
-        });
-      } catch(e) {
-        console.error("Errore caricamento POI:", e);
-      }
-    }
-
-    window.initMapAndAutocomplete = function() {
-      initMap();
-      initAutocomplete();
-      console.log("Mappa e autocomplete inizializzati");
-    }
-  </script>
-
-  <!-- Google Maps JS API con callback -->
-  <script async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places&callback=initMapAndAutocomplete">
-  </script>
+<!-- Google Maps JS API con callback -->
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places&callback=initMapAndAutocomplete">
+</script>
 
 </body>
 </html>
