@@ -44,29 +44,31 @@
 </head>
 <body>
 
-  <!-- Contenitore barra di ricerca -->
   <div id="search-container">
     <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
   </div>
 
-  <!-- Contenitore mappa -->
   <div id="map"></div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <script>
-    let map;
-    let marker;
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk3iGqXsnobTpPMhTfiqyUDs-WVkeqtiypaWvVH6zGZp8c7pbOFgKkPJXVQsDNrZih/exec';
+    let map, marker, poiLayerGroup;
 
-    function initAutocomplete() {
-      console.log("Inizializzazione Google Autocomplete...");
-
+    function initMap() {
       map = L.map('map').setView([41.8719, 12.5674], 6); // Italia centrata
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
       }).addTo(map);
 
+      poiLayerGroup = L.layerGroup().addTo(map);
+
+      loadPOI(); // Carica POI dallo Sheet
+    }
+
+    function initAutocomplete() {
       const input = document.getElementById("pac-input");
       const autocomplete = new google.maps.places.Autocomplete(input);
 
@@ -84,17 +86,37 @@
         if (marker) map.removeLayer(marker);
         marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
         map.setView([lat, lng], 14);
-
-        console.log(`Luogo selezionato: ${name} (${lat}, ${lng})`);
       });
+    }
 
-      console.log("Mappa caricata correttamente");
+    async function loadPOI() {
+      try {
+        const res = await fetch(`${GAS_URL}?action=listPOI`);
+        const data = await res.json();
+        data.forEach(p => {
+          if(!p.Coordinate) return;
+          const coords = p.Coordinate.split(',').map(Number);
+          if(coords.length < 2) return;
+
+          const popupContent = `<b>${p.Name}</b><br>${p.Note||''}<br>${p.Link ? `<a href="${p.Link}" target="_blank">Link</a>` : ''}`;
+          L.marker(coords).addTo(poiLayerGroup).bindPopup(popupContent);
+        });
+      } catch(e) {
+        console.error("Errore caricamento POI:", e);
+      }
+    }
+
+    window.initMapAndAutocomplete = function() {
+      initMap();
+      initAutocomplete();
+      console.log("Mappa e autocomplete inizializzati");
     }
   </script>
 
   <!-- Google Maps JS API con callback -->
   <script async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places&callback=initAutocomplete">
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places&callback=initMapAndAutocomplete">
   </script>
+
 </body>
 </html>
