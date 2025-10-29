@@ -56,19 +56,15 @@
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <!-- Google Places API -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places"></script>
-
   <script>
   // ------------------- CONFIGURAZIONE -------------------
-  const GAS_URL = ''; // Inserisci qui il link della tua WebApp Google Apps Script
+  const GAS_URL = ''; // Inserisci qui il tuo WebApp URL di Google Apps Script
   const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
   const DEFAULT_ZOOM = 15;
   // -----------------------------------------------------
 
-  // Inizializzazione mappa
   const map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom: 19,
     attribution: '© OpenStreetMap'
   }).addTo(map);
@@ -76,7 +72,7 @@
   let tipologie = [];
   let localita = [];
   let poi = [];
-  const poiLayerGroup = L.layerGroup().addTo(map);
+  let poiLayerGroup = L.layerGroup().addTo(map);
 
   function parseCoords(s){
     if(!s) return null;
@@ -90,19 +86,19 @@
 
   async function loadTipologie(){
     try{
-      if(!GAS_URL) return;
+      if(!GAS_URL) throw new Error('GAS_URL non impostato');
       const res = await fetch(`${GAS_URL}?action=listTipologia`);
       const data = await res.json();
-      tipologie = data.map(r=>({IDTipo:r.IDTipo, Tipo:r.Tipo, Colore:r.Colore}));
+      tipologie = data.map(r=>({IDTipo: r.IDTipo, Tipo: r.Tipo, Colore: r.Colore}));
       renderLegend();
     }catch(err){
-      console.warn('Impossibile caricare tipologie dal server:',err);
+      console.warn('Impossibile caricare tipologie:',err);
     }
   }
 
   async function loadLocalita(){
     try{
-      if(!GAS_URL) return;
+      if(!GAS_URL) throw new Error('GAS_URL non impostato');
       const res = await fetch(`${GAS_URL}?action=listLocalita`);
       const data = await res.json();
       localita = data.map(r=>({IDLocalita:r.IDLocalita, Localita:r.Localita, Coordinate:r.Coordinate}));
@@ -116,13 +112,13 @@
         sel.appendChild(opt);
       });
     }catch(err){
-      console.warn('Impossibile caricare località:',err);
+      console.warn('Impossibile caricare localita:',err);
     }
   }
 
   async function loadPOI(){
     try{
-      if(!GAS_URL) return;
+      if(!GAS_URL) throw new Error('GAS_URL non impostato');
       const res = await fetch(`${GAS_URL}?action=listPOI`);
       const data = await res.json();
       poi = data;
@@ -155,29 +151,26 @@
     tipologie.forEach(t=>{
       const div = document.createElement('div');
       div.className='item';
-      const sw = document.createElement('div');
-      sw.className='swatch';
-      sw.style.background = t.Colore || 'gray';
-      const txt = document.createElement('div');
-      txt.textContent = t.Tipo;
-      div.appendChild(sw);
-      div.appendChild(txt);
+      const sw = document.createElement('div'); sw.className='swatch'; sw.style.background = t.Colore || 'gray';
+      const txt = document.createElement('div'); txt.textContent = t.Tipo;
+      div.appendChild(sw); div.appendChild(txt);
       container.appendChild(div);
     });
   }
 
   function escapeHtml(s){ return s ? s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])) : ''; }
-  function escapeHtmlAttr(s){ return s ? s.replace(/"/g,'\\"') : s; }
+  function escapeHtmlAttr(s){ return s ? s.replace(/"/g,'\"') : s; }
 
   document.getElementById('localita-select').addEventListener('change', function(e){
-    const opt = e.target.options[e.target.selectedIndex];
-    if(opt && opt.dataset.coords){
+    const sel = e.target;
+    const opt = sel.options[sel.selectedIndex];
+    if(opt && opt.dataset && opt.dataset.coords){
       const coords = parseCoords(opt.dataset.coords);
       if(coords){ map.setView(coords, DEFAULT_ZOOM); }
     }
   });
 
-  // Inizializza Google Places Autocomplete
+  // Inizializzazione Google Autocomplete (chiamata via callback async)
   function initAutocomplete(){
     try {
       const input = document.getElementById('pac-input');
@@ -189,10 +182,11 @@
         const lng = place.geometry.location.lng();
         const name = place.name || input.value;
         map.setView([lat,lng], 17);
-        openPoiForm({lat,lng,name});
+        openPoiForm({lat, lng, name});
       });
-    } catch(e) {
-      console.warn('Errore inizializzazione Google Autocomplete:', e);
+      console.log('Google Autocomplete inizializzato');
+    } catch (e) {
+      console.error('Errore inizializzazione Google Autocomplete:', e);
     }
   }
 
@@ -211,23 +205,18 @@
       <div style="margin-top:8px;text-align:right">
         <button id="btn-canc" class="btn secondary">Annulla</button>
         <button id="btn-save" class="btn">Salva POI</button>
-      </div>
-    `;
+      </div>`;
     form.innerHTML = html;
     const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map);
 
     document.getElementById('btn-canc').addEventListener('click', ()=>{ map.closePopup(); });
     document.getElementById('btn-save').addEventListener('click', async ()=>{
-      const nameVal = document.getElementById('form-name').value.trim();
-      const idTipoVal = document.getElementById('form-tipologia').value;
-      const noteVal = document.getElementById('form-note').value.trim();
-      const linkVal = document.getElementById('form-link').value.trim();
       const payload = {
-        Name: nameVal,
+        Name: document.getElementById('form-name').value.trim(),
         Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`,
-        IDTipo: idTipoVal,
-        Note: noteVal,
-        Link: linkVal
+        IDTipo: document.getElementById('form-tipologia').value,
+        Note: document.getElementById('form-note').value.trim(),
+        Link: document.getElementById('form-link').value.trim()
       };
       try{
         await savePOI(payload);
@@ -241,7 +230,7 @@
   }
 
   async function savePOI(obj){
-    if(!GAS_URL) throw new Error('GAS_URL non impostato: deploya uno script che gestisca action=savePOI');
+    if(!GAS_URL) throw new Error('GAS_URL non impostato');
     const res = await fetch(`${GAS_URL}?action=savePOI`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -253,12 +242,17 @@
   }
 
   (async function(){
+    console.log("Caricamento mappa in corso...");
     await loadTipologie();
     await loadLocalita();
     await loadPOI();
-    initAutocomplete();
-    console.log('Mappa caricata correttamente');
+    console.log("Mappa caricata correttamente");
   })();
+  </script>
+
+  <!-- Google Maps JavaScript API (caricamento asincrono con callback) -->
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnjphUot626of1dBSAzgGk3Mk30QyppDg&libraries=places&callback=initAutocomplete">
   </script>
 </body>
 </html>
