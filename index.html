@@ -11,20 +11,17 @@
 <style>
 html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 #map { height: 100%; width: 100%; }
-
-/* Barra di ricerca compatta e centrata */
 #search-container {
   position: absolute;
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255,255,255,0.9);
   border-radius: 6px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   padding: 6px 10px;
 }
-
 #pac-input { width: 250px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
 .poi-form input, .poi-form textarea, .poi-form select {
@@ -43,7 +40,6 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 
 <div id="map"></div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
@@ -52,7 +48,7 @@ let map, marker, poiLayerGroup, tipologie = [];
 
 // ---------------- MAPPA ----------------
 function initMap() {
-  map = L.map('map').setView([41.8719, 12.5674], 6); // Italia centrata
+  map = L.map('map').setView([41.8719, 12.5674], 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
   poiLayerGroup = L.layerGroup().addTo(map);
   loadTipologie();
@@ -79,7 +75,8 @@ async function loadTipologie() {
   try {
     const res = await fetch(`${GAS_URL}?action=listTipologia`);
     const data = await res.json();
-    tipologie = data.map(t => ({id: t.IDTipo, nome: t.Tipo}));
+    // Assumiamo che la colonna B si chiami "Tipo"
+    tipologie = data.map(t => ({id: t.IDTipo, nome: t.Tipo || t['B'] || t['ColonnaB']}));
   } catch(e) { console.error("Errore caricamento tipologie:", e); }
 }
 
