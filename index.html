@@ -8,23 +8,72 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
 <style>
+/* Stili di base */
 html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 #map { height: 100%; width: 100%; }
-#search-container {
+
+/* Contenitore per elementi UI */
+#ui-container {
   position: absolute;
   top: 10px;
+  width: 100%;
+  pointer-events: none; /* Permette il click sulla mappa sotto */
+  z-index: 1000;
+}
+/* Google Search al centro in alto */
+#search-container {
+  position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1000;
   background: rgba(255,255,255,0.9);
   border-radius: 6px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   padding: 6px 10px;
+  pointer-events: auto;
 }
 #pac-input { width: 250px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
+/* Selezione Località in alto a sinistra */
+#location-container {
+  position: absolute;
+  top: 0;
+  left: 10px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  padding: 6px 10px;
+  pointer-events: auto;
+}
+#select-localita { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+
+/* Legenda in basso a destra */
+#legend {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  pointer-events: auto;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+.legend-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%; /* Cerchio per il colore */
+  margin-right: 8px;
+  border: 1px solid #555;
+}
+
+/* Stili del Form Popup */
 .poi-form input, .poi-form textarea, .poi-form select {
-  width: 100%; padding: 6px; margin: 4px 0; border-radius: 4px; border: 1px solid #ccc;
+  width: 100%; padding: 6px; margin: 4px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box;
 }
 .poi-form textarea { resize: vertical; }
 .btn { display:inline-block; padding:6px 10px; border-radius:4px; border:none; cursor:pointer; background:#1976d2; color:#fff; }
@@ -33,31 +82,56 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 </head>
 <body>
 
-<div id="search-container">
-  <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
+<div id="ui-container">
+  <div id="search-container">
+    <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
+  </div>
+  
+  <div id="location-container">
+    <select id="select-localita">
+      <option value="">Seleziona Località</option>
+    </select>
+  </div>
 </div>
 
 <div id="map"></div>
 
+<div id="legend">
+  <strong>Tipologie POI</strong>
+  <div id="legend-content"></div>
+</div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
+// **DEVI SOSTITUIRE QUESTO URL CON QUELLO PUBBLICATO DEL TUO SCRIPT GAS**
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwhp1VXVAvNmpnI31JvALvwY3osCHEiuov_E9leM98iIB-_du4LFUOttNgrSqrm2Aue/exec';
-let map, marker, poiLayerGroup, tipologie = [];
+let map, poiLayerGroup, tipologie = [];
 
-// ---------------- MAPPA ----------------
+const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
+const DEFAULT_ZOOM = 15;
+
+// ---------------- MAPPA E UI ----------------
 function initMap() {
-  map = L.map('map').setView([41.8719, 12.5674], 6);
+  map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
   poiLayerGroup = L.layerGroup().addTo(map);
-  loadTipologie();
-  loadPOI();
+
+  // Inizializza i dati e gli elementi UI
+  loadTipologie().then(() => {
+    loadLocalita();
+    loadPOI();
+  });
 }
 
 // ---------------- GOOGLE PLACES ----------------
 function initAutocomplete() {
   const input = document.getElementById("pac-input");
+  // La libreria 'places' è caricata nel tag script finale.
   const autocomplete = new google.maps.places.Autocomplete(input);
+  
+  // Opzionale: limita l'area di ricerca
+  // autocomplete.bindTo('bounds', map); 
 
   autocomplete.addListener("place_changed", function () {
     const place = autocomplete.getPlace();
@@ -65,31 +139,106 @@ function initAutocomplete() {
 
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
+    
+    map.setView([lat, lng], DEFAULT_ZOOM);
+    
+    // Apri il form per l'inserimento
     openPoiForm({lat, lng, name: place.name});
   });
 }
 
-// ---------------- CARICAMENTO TIPLOGIE ----------------
+// ---------------- CARICAMENTO LOCALITA ----------------
+async function loadLocalita() {
+  try {
+    const res = await fetch(`${GAS_URL}?action=listLocalita`);
+    const data = await res.json();
+    const select = document.getElementById('select-localita');
+    
+    // Aggiungi un'opzione per tornare al centro predefinito o non selezionata
+    select.innerHTML = '<option value="">Seleziona Località</option>';
+
+    data.forEach(l => {
+      if(!l.Localita || !l.Coordinate) return;
+      const option = document.createElement('option');
+      option.value = l.Coordinate;
+      option.textContent = l.Localita;
+      select.appendChild(option);
+    });
+
+    // Evento per centrare la mappa
+    select.addEventListener('change', (e) => {
+      if (!e.target.value) {
+        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        return;
+      }
+      const coords = e.target.value.split(',').map(Number);
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        map.setView(coords, DEFAULT_ZOOM);
+      }
+    });
+
+  } catch(e) { console.error("Errore caricamento località:", e); }
+}
+
+// ---------------- CARICAMENTO TIPLOGIE E LEGENDA ----------------
 async function loadTipologie() {
   try {
     const res = await fetch(`${GAS_URL}?action=listTipologia`);
     const data = await res.json();
-    tipologie = data.map(t => ({id: t.IDTipo, nome: t.Tipo}));
+    
+    // Mappa i dati della tipologia includendo ID, Nome e Colore
+    tipologie = data.map(t => ({
+      id: String(t.IDTipo).trim(),
+      nome: t.Tipo,
+      colore: t.Colore ? String(t.Colore).toLowerCase() : 'gray' // Converte in minuscolo per compatibilità
+    }));
+
+    // Costruisci la Legenda
+    const legendContent = document.getElementById('legend-content');
+    legendContent.innerHTML = '';
+    tipologie.forEach(t => {
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.innerHTML = `<span class="legend-color" style="background-color: ${t.colore};"></span>${t.nome}`;
+      legendContent.appendChild(div);
+    });
+
   } catch(e) { console.error("Errore caricamento tipologie:", e); }
 }
 
-// ---------------- CARICAMENTO POI ----------------
+// ---------------- CARICAMENTO POI E MARKER ----------------
 async function loadPOI() {
   try {
     const res = await fetch(`${GAS_URL}?action=listPOI`);
     const data = await res.json();
     poiLayerGroup.clearLayers();
+    
     data.forEach(p => {
       if(!p.Coordinate) return;
-      const coords = p.Coordinate.split(',').map(Number);
-      if(coords.length < 2) return;
-      const popupContent = `<b>${p.Name}</b><br>${p.Note||''}<br>${p.Link ? `<a href="${p.Link}" target="_blank">Link</a>` : ''}`;
-      L.marker(coords).addTo(poiLayerGroup).bindPopup(popupContent);
+      const coords = String(p.Coordinate).split(',').map(Number);
+      if(coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+      
+      // Trova il colore in base a IDTipo
+      const tipo = tipologie.find(t => t.id === String(p.IDTipo).trim());
+      const markerColor = tipo ? tipo.colore : 'blue';
+      const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
+
+      const popupContent = `
+        <b>${p.Name}</b><br>
+        Tipo: ${tipoNome}<br>
+        Note: ${p.Note||'Nessuna nota'}<br>
+        ${p.Link ? `<a href="${p.Link}" target="_blank">Link di Riferimento</a>` : ''}
+      `;
+
+      // Visualizza come cerchio colorato (Circle Marker)
+      L.circleMarker(coords, {
+          radius: 8,
+          fillColor: markerColor,
+          color: "#000",
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.8
+      }).addTo(poiLayerGroup).bindPopup(popupContent);
     });
   } catch(e) { console.error("Errore caricamento POI:", e); }
 }
@@ -98,18 +247,22 @@ async function loadPOI() {
 function openPoiForm({lat, lng, name}) {
   const form = document.createElement('div');
   form.className = 'poi-form';
+  
+  // Popola il menu a discesa della tipologia
+  const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
+
   form.innerHTML = `
     <label>Nome</label>
     <input id="form-name" type="text" value="${name}" />
     <label>Tipo</label>
     <select id="form-tipologia">
-      ${tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('')}
+      ${tipoOptions}
     </select>
     <label>Note</label>
     <textarea id="form-note" rows="3"></textarea>
     <label>Link</label>
     <input id="form-link" type="text" placeholder="https://..." />
-    <div style="margin-top:6px; text-align:right;">
+    <div style="margin-top:10px; text-align:right;">
       <button id="btn-canc" class="btn secondary">Annulla</button>
       <button id="btn-save" class="btn">Salva POI</button>
     </div>
@@ -126,26 +279,33 @@ function openPoiForm({lat, lng, name}) {
       Note: document.getElementById('form-note').value.trim(),
       Link: document.getElementById('form-link').value.trim()
     };
+    
     try {
-      const res = await fetch(`${GAS_URL}?action=savePOI`, {
+      // **LA CORREZIONE CHIAVE:** Rimuovi ?action=savePOI dall'URL per la POST
+      const res = await fetch(GAS_URL, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
+      
       const data = await res.json();
-      if(data.success === false) throw new Error(data.message || 'Errore server');
-      alert('POI salvato');
+      if(data.success === false) throw new Error(data.message || 'Errore server sconosciuto');
+      
+      alert('POI salvato con successo! (Nuovo ID: ' + data.newID + ')'); 
       map.closePopup();
-      await loadPOI();
-    } catch(e) { alert('Errore salvataggio: '+e.message); }
+      await loadPOI(); // Ricarica i POI sulla mappa
+    } catch(e) { 
+        console.error("Errore nel salvataggio:", e);
+        alert('Errore salvataggio: ' + e.message + '. Verifica che lo script GAS sia pubblicato come nuova versione.'); 
+    }
   });
 }
 
 // ---------------- INIZIALIZZAZIONE ----------------
+// Funzione di callback chiamata dal caricamento asincrono della API di Google Maps
 window.initMapAndAutocomplete = function() {
   initMap();
   initAutocomplete();
-  console.log("Mappa e autocomplete inizializzati");
 }
 </script>
 
