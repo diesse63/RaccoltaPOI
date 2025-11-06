@@ -21,100 +21,112 @@ html, body {
 
 /* Contenitore per elementi UI */
 #ui-container {
-  position: absolute;
-  top: 10px;
-  width: 100%;
-  pointer-events: none; /* Permette il click sulla mappa sotto */
-  z-index: 1000;
+  position: absolute;
+  top: 10px;
+  width: 100%;
+  pointer-events: none; /* Permette il click sulla mappa sotto */
+  z-index: 1000;
 }
 /* Google Search al centro in alto */
 #search-container {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255,255,255,0.9);
-  border-radius: 6px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  padding: 6px 10px;
-  pointer-events: auto;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.9);
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  padding: 6px 10px;
+  pointer-events: auto;
 }
 #pac-input { width: 250px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
-/* Selezione Località in alto a sinistra */
+/* Selezione Località in alto a DESTRA (MODIFICATO) */
 #location-container {
-  position: absolute;
-  top: 0;
-  left: 10px;
-  background: rgba(255,255,255,0.9);
-  border-radius: 6px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  padding: 6px 10px;
-  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  right: 10px; /* Spostato a destra */
+  left: auto; /* Rimosso left: 10px */
+  background: rgba(255,255,255,0.9);
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  padding: 6px 10px;
+  pointer-events: auto;
 }
 #select-localita { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
 /* Legenda in basso a DESTRA (Posizionamento fissato) */
 #legend {
-  position: absolute;
-  bottom: 10px;
-  right: 10px; 
-  left: auto; 
-  background: rgba(255, 255, 255, 0.9);
-  padding: 10px;
-  border-radius: 5px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-  pointer-events: auto;
-  z-index: 900; /* Assicura che sia sopra la mappa */
+  position: absolute;
+  bottom: 10px;
+  right: 10px; 
+  left: auto; 
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  pointer-events: auto;
+  z-index: 900; /* Assicura che sia sopra la mappa */
 }
 .legend-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 5px;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 14px;
 }
 .legend-color {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%; /* Cerchio per il colore */
-  margin-right: 8px;
-  border: 1px solid #555;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%; /* Cerchio per il colore */
+  margin-right: 8px;
+  border: 1px solid #555;
 }
 
-/* Stili del Form Popup */
+/* Stili del Form Popup e Pulsanti */
 .poi-form input, .poi-form textarea, .poi-form select {
-  width: 100%; padding: 6px; margin: 4px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box;
+  width: 100%; padding: 6px; margin: 4px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box;
 }
 .poi-form textarea { resize: vertical; }
 .btn { display:inline-block; padding:6px 10px; border-radius:4px; border:none; cursor:pointer; background:#1976d2; color:#fff; }
 .btn.secondary { background:#6c757d; }
+
+/* Stile per il pulsante Elimina */
+.btn-delete { 
+    background-color: #dc3545; 
+    color: white; 
+    border: none; 
+    padding: 5px 8px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    margin-top: 8px; 
+}
 </style>
 </head>
 <body>
 
 <div id="ui-container">
-  <div id="search-container">
-    <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
-  </div>
-  
-  <div id="location-container">
-    <select id="select-localita">
-      <option value="">Seleziona Località</option>
-    </select>
-  </div>
+  <div id="search-container">
+    <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
+  </div>
+  
+  <div id="location-container">
+    <select id="select-localita">
+      <option value="">Seleziona Località</option>
+    </select>
+  </div>
 </div>
 
 <div id="map"></div>
 
 <div id="legend">
-  <strong>Tipologie POI</strong>
-  <div id="legend-content"></div>
+  <strong>Tipologie POI</strong>
+  <div id="legend-content"></div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 // **DEVI SOSTITUIRE QUESTO URL CON QUELLO PUBBLICATO DEL TUO SCRIPT GAS**
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxe5-tBHnhvxBBRwGdwy94E2c_IrROkKnbILw1BnncJ-b6w8iiQBcV-ExTKR2qig4A9/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbymiOChn9zDPibOCxS_ar3DdnenivPTVhBEJpCedGUlFydU2CiRni8zmpH7ZonYhxPd/exec';
 let map, poiLayerGroup, tipologie = [];
 
 const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
@@ -122,227 +134,217 @@ const DEFAULT_ZOOM = 15;
 
 // ---------------- MAPPA E UI ----------------
 function initMap() {
-  map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-  poiLayerGroup = L.layerGroup().addTo(map);
+  map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+  poiLayerGroup = L.layerGroup().addTo(map);
 
-  // Inizializza i dati e gli elementi UI
-  loadTipologie().then(() => {
-    loadLocalita();
-    loadPOI();
-  });
+  // ✅ AGGIUNTO: Listener per aggiungere POI con un click sulla mappa
+  map.on('click', function(e) {
+    openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''});
+  });
+
+  loadTipologie().then(() => {
+    loadLocalita();
+    loadPOI();
+  });
 }
 
 // ---------------- GOOGLE PLACES ----------------
 function initAutocomplete() {
-  const input = document.getElementById("pac-input");
-  // La libreria 'places' è caricata nel tag script finale.
-  const autocomplete = new google.maps.places.Autocomplete(input);
-  
-  // Opzionale: limita l'area di ricerca
-  // autocomplete.bindTo('bounds', map); 
-
-  autocomplete.addListener("place_changed", function () {
-    const place = autocomplete.getPlace();
-    if (!place.geometry) { alert("Nessun dettaglio disponibile per: '" + place.name + "'"); return; }
-
-    const lat = place.geometry.location.lat();
-    const lng = place.geometry.location.lng();
-    
-    map.setView([lat, lng], DEFAULT_ZOOM);
-    
-    // Apri il form per l'inserimento
-    openPoiForm({lat, lng, name: place.name});
-  });
+  const input = document.getElementById("pac-input");
+  const autocomplete = new google.maps.places.Autocomplete(input);
+  autocomplete.addListener("place_changed", function () {
+    const place = autocomplete.getPlace();
+    if (!place.geometry) { alert("Nessun dettaglio disponibile per: '" + place.name + "'"); return; }
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    map.setView([lat, lng], DEFAULT_ZOOM);
+    openPoiForm({lat, lng, name: place.name});
+  });
 }
 
 // ---------------- CARICAMENTO LOCALITA ----------------
 async function loadLocalita() {
-  try {
-    const res = await fetch(`${GAS_URL}?action=listLocalita`);
-    // Controllo essenziale prima di res.json()
-    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
-    
-    const data = await res.json();
-    const select = document.getElementById('select-localita');
-    
-    // Aggiungi un'opzione per tornare al centro predefinito o non selezionata
-    select.innerHTML = '<option value="">Seleziona Località</option>';
-
-    data.forEach(l => {
-      if(!l.Localita || !l.Coordinate) return;
-      const option = document.createElement('option');
-      option.value = l.Coordinate;
-      option.textContent = l.Localita;
-      select.appendChild(option);
-    });
-
-    // Evento per centrare la mappa
-    select.addEventListener('change', (e) => {
-      if (!e.target.value) {
-        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-        return;
-      }
-      const coords = e.target.value.split(',').map(Number);
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        map.setView(coords, DEFAULT_ZOOM);
-      }
-    });
-
-  } catch(e) { console.error("Errore caricamento località:", e); }
+  try {
+    const res = await fetch(`${GAS_URL}?action=listLocalita`);
+    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
+    const data = await res.json();
+    const select = document.getElementById('select-localita');
+    select.innerHTML = '<option value="">Seleziona Località</option>';
+    data.forEach(l => {
+      if(!l.Localita || !l.Coordinate) return;
+      const option = document.createElement('option');
+      option.value = l.Coordinate;
+      option.textContent = l.Localita;
+      select.appendChild(option);
+    });
+    select.addEventListener('change', (e) => {
+      if (!e.target.value) { map.setView(DEFAULT_CENTER, DEFAULT_ZOOM); return; }
+      const coords = e.target.value.split(',').map(Number);
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        map.setView(coords, DEFAULT_ZOOM);
+      }
+    });
+  } catch(e) { console.error("Errore caricamento località:", e); }
 }
 
 // ---------------- CARICAMENTO TIPLOGIE E LEGENDA ----------------
 async function loadTipologie() {
-  try {
-    const res = await fetch(`${GAS_URL}?action=listTipologia`);
-    
-    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}. Verifica la pubblicazione dello script GAS.`);
-    
-    const data = await res.json();
-    
-    // Mappa i dati della tipologia includendo ID, Nome e Colore
-    tipologie = data.map(t => ({
-      id: String(t.IDTipo).trim(),
-      nome: t.Tipo,
-      colore: t.Colore ? String(t.Colore).toLowerCase() : 'gray' 
-    }));
-
-    // *** COSTRUZIONE LEGENDA ***
-    const legendContent = document.getElementById('legend-content');
-    legendContent.innerHTML = ''; 
-    
-    if (tipologie.length === 0) {
-      legendContent.innerHTML = '<p>Nessuna tipologia caricata.</p>';
-      return;
-    }
-
-    tipologie.forEach(t => {
-      // Filtro per assicurare che ci sia un nome
-      if (!t.nome || t.nome.trim() === '') return; 
-      
-      const div = document.createElement('div');
-      div.className = 'legend-item';
-      div.innerHTML = `<span class="legend-color" style="background-color: ${t.colore};"></span>${t.nome}`;
-      legendContent.appendChild(div);
-    });
-    // *** FINE COSTRUZIONE LEGENDA ***
-
-  } catch(e) { 
-      console.error("Errore caricamento tipologie:", e);
-      // Messaggio di errore visibile se il caricamento fallisce
-      document.getElementById('legend-content').innerHTML = `Errore: Impossibile caricare le tipologie. Controlla la Console (F12) e la pubblicazione GAS.`;
-  }
+  try {
+    const res = await fetch(`${GAS_URL}?action=listTipologia`);
+    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}.`);
+    const data = await res.json();
+    tipologie = data.map(t => ({
+      id: String(t.IDTipo).trim(),
+      nome: t.Tipo,
+      colore: t.Colore ? String(t.Colore).toLowerCase() : 'gray' 
+    }));
+    const legendContent = document.getElementById('legend-content');
+    legendContent.innerHTML = ''; 
+    if (tipologie.length === 0) { legendContent.innerHTML = '<p>Nessuna tipologia caricata.</p>'; return; }
+    tipologie.forEach(t => {
+      if (!t.nome || t.nome.trim() === '') return; 
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.innerHTML = `<span class="legend-color" style="background-color: ${t.colore};"></span>${t.nome}`;
+      legendContent.appendChild(div);
+    });
+  } catch(e) { 
+      console.error("Errore caricamento tipologie:", e);
+      document.getElementById('legend-content').innerHTML = `Errore caricamento tipologie.`;
+  }
 }
 
-// ---------------- CARICAMENTO POI E MARKER ----------------
+// ---------------- CARICAMENTO POI E MARKER (CON BOTTONE ELIMINA) ----------------
 async function loadPOI() {
-  try {
-    const res = await fetch(`${GAS_URL}?action=listPOI`);
-    // Controllo essenziale prima di res.json()
-    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
-    
-    const data = await res.json();
-    poiLayerGroup.clearLayers();
-    
-    data.forEach(p => {
-      if(!p.Coordinate) return;
-      const coords = String(p.Coordinate).split(',').map(Number);
-      if(coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
-      
-      // Trova il colore in base a IDTipo
-      const tipo = tipologie.find(t => t.id === String(p.IDTipo).trim());
-      const markerColor = tipo ? tipo.colore : 'blue';
-      const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
+  try {
+    const res = await fetch(`${GAS_URL}?action=listPOI`);
+    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
+    
+    const data = await res.json();
+    poiLayerGroup.clearLayers();
+    
+    data.forEach(p => {
+      if (!p.Coordinate) return; 
+      
+      const coords = String(p.Coordinate).split(',').map(Number);
+      if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+      
+      const tipo = tipologie.find(t => t.id === String(p.IDTipo).trim());
+      const markerColor = tipo ? tipo.colore : 'blue';
+      const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
 
-      const popupContent = `
-        <b>${p.Name}</b><br>
-        Tipo: ${tipoNome}<br>
-        Note: ${p.Note||'Nessuna nota'}<br>
-        ${p.Link ? `<a href="${p.Link}" target="_blank">Link di Riferimento</a>` : ''}
-      `;
+      // ✅ COSTRUZIONE DEL POPUP CON LOGICA CONDIZIONALE PER IL PULSANTE
+      let popupContent = `
+        <b>${p.Name || 'Senza nome'}</b><br>
+        Tipo: ${tipoNome}<br>
+        Note: ${p.Note || 'Nessuna nota'}<br>
+        ${p.Link ? `<a href="${p.Link}" target="_blank">Link di Riferimento</a>` : ''}
+      `;
 
-      // Visualizza come cerchio colorato (Circle Marker)
-      L.circleMarker(coords, {
-          radius: 8,
-          fillColor: markerColor,
-          color: "#000",
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.8
-      }).addTo(poiLayerGroup).bindPopup(popupContent);
-    });
-  } catch(e) { console.error("Errore caricamento POI:", e); }
+      // Aggiungi il pulsante "Elimina" solo se il POI ha un ID.
+      // CORREZIONE: Uso p.IDLuoghi
+      const hasValidId = p.IDLuoghi !== null && p.IDLuoghi !== undefined && String(p.IDLuoghi).trim() !== '';
+      if (hasValidId) {
+        popupContent += `<br><button class="btn-delete" data-id="${p.IDLuoghi}">Elimina</button>`;
+      }
+      
+      const marker = L.circleMarker(coords, {
+          radius: 8, fillColor: markerColor, color: "#000",
+          weight: 1, opacity: 1, fillOpacity: 0.8
+      }).addTo(poiLayerGroup).bindPopup(popupContent);
+      
+      // ✅ ASSOCIA L'EVENTO CLICK SOLO SE IL PULSANTE ESISTE
+      if (hasValidId) {
+        marker.on('popupopen', () => {
+             // CORREZIONE: Uso p.IDLuoghi
+            const deleteBtn = document.querySelector(`.btn-delete[data-id="${p.IDLuoghi}"]`);
+            if (deleteBtn) {
+              deleteBtn.addEventListener('click', () => {
+                if (confirm(`Sei sicuro di voler eliminare il POI "${p.Name}"?`)) {
+                    // CORREZIONE: Uso p.IDLuoghi
+                    deletePOI(p.IDLuoghi); 
+                }
+              });
+            }
+        });
+      }
+    });
+  } catch(e) { 
+    console.error("Errore critico durante il caricamento dei POI:", e);
+    alert("Non è stato possibile caricare i Punti di Interesse.");
+  }
 }
 
 // ---------------- FORM PER NUOVO POI ----------------
 function openPoiForm({lat, lng, name}) {
-  const form = document.createElement('div');
-  form.className = 'poi-form';
-  
-  // Popola il menu a discesa della tipologia
-  const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
+  const form = document.createElement('div');
+  form.className = 'poi-form';
+  const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
+  form.innerHTML = `
+    <label>Nome</label>
+    <input id="form-name" type="text" value="${name || ''}" />
+    <label>Tipo</label>
+    <select id="form-tipologia">${tipoOptions}</select>
+    <label>Note</label>
+    <textarea id="form-note" rows="3"></textarea>
+    <label>Link</label>
+    <input id="form-link" type="text" placeholder="https://..." />
+    <div style="margin-top:10px; text-align:right;">
+      <button id="btn-canc" class="btn secondary">Annulla</button>
+      <button id="btn-save" class="btn">Salva POI</button>
+    </div>
+  `;
+  const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map);
+  document.getElementById('btn-canc').addEventListener('click', ()=>map.closePopup());
+  document.getElementById('btn-save').addEventListener('click', async ()=>{
+    const payload = {
+      action: 'addPOI',
+      Name: document.getElementById('form-name').value.trim(),
+      Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`,
+      IDTipo: document.getElementById('form-tipologia').value,
+      Note: document.getElementById('form-note').value.trim(),
+      Link: document.getElementById('form-link').value.trim()
+    };
+    try {
+      const res = await fetch(GAS_URL, {
+        method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.status === 0 || res.ok) {
+          alert('POI salvato con successo!'); 
+      } else { throw new Error(`Errore HTTP: ${res.status}`); }
+      map.closePopup();
+      await loadPOI();
+    } catch(e) { 
+        console.error("Errore nel salvataggio:", e);
+        alert('Errore salvataggio: ' + e.message); 
+    }
+  });
+}
 
-  form.innerHTML = `
-    <label>Nome</label>
-    <input id="form-name" type="text" value="${name}" />
-    <label>Tipo</label>
-    <select id="form-tipologia">
-      ${tipoOptions}
-    </select>
-    <label>Note</label>
-    <textarea id="form-note" rows="3"></textarea>
-    <label>Link</label>
-    <input id="form-link" type="text" placeholder="https://..." />
-    <div style="margin-top:10px; text-align:right;">
-      <button id="btn-canc" class="btn secondary">Annulla</button>
-      <button id="btn-save" class="btn">Salva POI</button>
-    </div>
-  `;
-
-  const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map);
-
-  document.getElementById('btn-canc').addEventListener('click', ()=>map.closePopup());
-  document.getElementById('btn-save').addEventListener('click', async ()=>{
-    const payload = {
-      Name: document.getElementById('form-name').value.trim(),
-      Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`,
-      IDTipo: document.getElementById('form-tipologia').value,
-      Note: document.getElementById('form-note').value.trim(),
-      Link: document.getElementById('form-link').value.trim()
-    };
-    
-    try {
-      // *** MODIFICA PER RISOLVERE 'Failed to fetch' ***
-      const res = await fetch(GAS_URL, {
-        method: 'POST',
-        mode: 'no-cors', // Rimuove le restrizioni CORS del browser
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      
-      // Non possiamo leggere res.json() a causa di 'no-cors', quindi assumiamo il successo se non c'è errore di rete.
-      // Il codice di stato sarà 0 se l'invio è avvenuto.
-      if (res.status === 0 || res.ok) {
-          alert('POI salvato con successo! Controlla il foglio Google.'); 
-      } else {
-          throw new Error(`Errore HTTP: ${res.status}`);
-      }
-
-      map.closePopup();
-      await loadPOI(); // Ricarica i POI sulla mappa
-    } catch(e) { 
-        console.error("Errore nel salvataggio (POST bloccata):", e);
-        alert('Errore salvataggio: ' + e.message + '. Se l\'errore persiste, è un problema di rete/firewall.'); 
-    }
-  });
+// ---------------- FUNZIONE DI ELIMINAZIONE ----------------
+async function deletePOI(poiId) {
+    try {
+        const res = await fetch(GAS_URL, {
+            method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'deletePOI', ID: poiId })
+        });
+        if (res.status === 0 || res.ok) {
+            alert('POI eliminato con successo!');
+            map.closePopup();
+            loadPOI();
+        } else { throw new Error(`Errore HTTP: ${res.status}`); }
+    } catch (e) {
+        console.error("Errore durante l'eliminazione:", e);
+        alert('Errore durante l\'eliminazione: ' + e.message);
+    }
 }
 
 // ---------------- INIZIALIZZAZIONE ----------------
-// Funzione di callback chiamata dal caricamento asincrono della API di Google Maps
 window.initMapAndAutocomplete = function() {
-  initMap();
-  initAutocomplete();
+  initMap();
+  initAutocomplete();
 }
 </script>
 
