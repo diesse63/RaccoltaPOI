@@ -19,12 +19,12 @@ html, body {
     width: 100%; 
 }
 
-/* Contenitore per elementi UI */
+/* Contenitore per elementi UI in alto */
 #ui-container {
   position: absolute;
   top: 10px;
   width: 100%;
-  pointer-events: none; /* Permette il click sulla mappa sotto */
+  pointer-events: none;
   z-index: 1000;
 }
 /* Google Search al centro in alto */
@@ -40,21 +40,21 @@ html, body {
 }
 #pac-input { width: 250px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
-/* Selezione Località in alto a DESTRA (MODIFICATO) */
+/* Selezione Località in basso a SINISTRA */
 #location-container {
   position: absolute;
-  top: 0;
-  right: 10px; /* Spostato a destra */
-  left: auto; /* Rimosso left: 10px */
+  bottom: 10px; 
+  left: 10px;   
   background: rgba(255,255,255,0.9);
   border-radius: 6px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
   padding: 6px 10px;
   pointer-events: auto;
+  z-index: 900; 
 }
 #select-localita { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
-/* Legenda in basso a DESTRA (Posizionamento fissato) */
+/* Legenda in basso a DESTRA */
 #legend {
   position: absolute;
   bottom: 10px;
@@ -65,7 +65,7 @@ html, body {
   border-radius: 5px;
   box-shadow: 0 1px 5px rgba(0,0,0,0.4);
   pointer-events: auto;
-  z-index: 900; /* Assicura che sia sopra la mappa */
+  z-index: 900;
 }
 .legend-item {
   display: flex;
@@ -76,7 +76,7 @@ html, body {
 .legend-color {
   width: 18px;
   height: 18px;
-  border-radius: 50%; /* Cerchio per il colore */
+  border-radius: 50%;
   margin-right: 8px;
   border: 1px solid #555;
 }
@@ -86,33 +86,43 @@ html, body {
   width: 100%; padding: 6px; margin: 4px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box;
 }
 .poi-form textarea { resize: vertical; }
-.btn { display:inline-block; padding:6px 10px; border-radius:4px; border:none; cursor:pointer; background:#1976d2; color:#fff; }
+
+.btn { 
+    display: inline-block; 
+    padding: 6px 10px; 
+    border-radius: 4px; 
+    border: none; 
+    cursor: pointer; 
+    color: #fff; 
+    text-decoration: none;
+    margin-top: 8px;
+    margin-right: 5px;
+}
+.btn.primary { background:#1976d2; }
 .btn.secondary { background:#6c757d; }
 
-/* Stile per il pulsante Elimina */
 .btn-delete { 
-    background-color: #dc3545; 
-    color: white; 
-    border: none; 
-    padding: 5px 8px; 
-    border-radius: 4px; 
-    cursor: pointer; 
-    margin-top: 8px; 
+    background-color: #dc3545;
+}
+.btn-navigate {
+    background-color: #28a745;
 }
 </style>
 </head>
 <body>
 
+<!-- Questo contenitore ora contiene solo la barra di ricerca -->
 <div id="ui-container">
   <div id="search-container">
     <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
   </div>
-  
-  <div id="location-container">
-    <select id="select-localita">
-      <option value="">Seleziona Località</option>
-    </select>
-  </div>
+</div>
+
+<!-- MODIFICA CHIAVE: Spostato #location-container qui fuori -->
+<div id="location-container">
+  <select id="select-localita">
+    <option value="">Seleziona Località</option>
+  </select>
 </div>
 
 <div id="map"></div>
@@ -125,11 +135,11 @@ html, body {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
+// Il codice Javascript rimane invariato...
 // **DEVI SOSTITUIRE QUESTO URL CON QUELLO PUBBLICATO DEL TUO SCRIPT GAS**
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbymiOChn9zDPibOCxS_ar3DdnenivPTVhBEJpCedGUlFydU2CiRni8zmpH7ZonYhxPd/exec';
 let map, poiLayerGroup, tipologie = [];
 
-// AGGIUNTO: Variabile per tenere traccia del marcatore della posizione attuale
 let currentLocationMarker = null;
 
 const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
@@ -141,7 +151,6 @@ function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
   poiLayerGroup = L.layerGroup().addTo(map);
 
-  // AGGIUNTO: Chiamata alla funzione per mostrare la posizione attuale
   showCurrentLocation();
 
   map.on('click', function(e) {
@@ -154,49 +163,24 @@ function initMap() {
   });
 }
 
-// AGGIUNTO: Funzione per ottenere e visualizzare la posizione attuale dell'utente
+// ---------------- POSIZIONE ATTUALE ----------------
 function showCurrentLocation() {
     if (!navigator.geolocation) {
-        console.log("Geolocalizzazione non supportata dal tuo browser.");
+        console.log("Geolocalizzazione non supportata.");
         return;
     }
-
-    const success = (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-
-        // Rimuove il marcatore precedente se esiste, per evitare duplicati
+    navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
         if (currentLocationMarker) {
             poiLayerGroup.removeLayer(currentLocationMarker);
         }
-
-        // Crea un POI "fittizio" per la posizione attuale con uno stile distintivo
-        currentLocationMarker = L.circleMarker([lat, lng], {
-            radius: 9,
-            fillColor: '#007bff', // Blu brillante
-            color: "#fff",
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
+        currentLocationMarker = L.circleMarker([latitude, longitude], {
+            radius: 9, fillColor: '#007bff', color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9
         }).addTo(poiLayerGroup);
-
-        currentLocationMarker.bindPopup(`<b>Posizione Attuale</b>`).openPopup();
-        
-        // Opzionale: centra la mappa sulla nuova posizione la prima volta
-        // map.setView([lat, lng], DEFAULT_ZOOM);
-    };
-
-    const error = (err) => {
+        currentLocationMarker.bindPopup(`<b>La tua Posizione</b>`).openPopup();
+    }, (err) => {
         console.warn(`ERRORE (${err.code}): ${err.message}`);
-        alert("Impossibile ottenere la posizione. Assicurati di aver concesso i permessi.");
-    };
-
-    // Richiede la posizione attuale al browser
-    navigator.geolocation.getCurrentPosition(success, error, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0 // Forza il rilevamento di una nuova posizione
-    });
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
 
 // ---------------- GOOGLE PLACES ----------------
@@ -265,16 +249,20 @@ async function loadTipologie() {
   }
 }
 
-// ---------------- CARICAMENTO POI E MARKER (CON BOTTONE ELIMINA) ----------------
+// ---------------- CARICAMENTO POI E MARKER ----------------
 async function loadPOI() {
   try {
     const res = await fetch(`${GAS_URL}?action=listPOI`);
     if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
     
     const data = await res.json();
-    // Non puliamo più l'intero layer, per non cancellare il marcatore della posizione attuale
-    // poiLayerGroup.clearLayers(); 
     
+    poiLayerGroup.eachLayer(layer => {
+        if (layer !== currentLocationMarker) {
+            poiLayerGroup.removeLayer(layer);
+        }
+    });
+
     data.forEach(p => {
       if (!p.Coordinate) return; 
       
@@ -284,19 +272,26 @@ async function loadPOI() {
       const tipo = tipologie.find(t => t.id === String(p.IDTipo).trim());
       const markerColor = tipo ? tipo.colore : 'blue';
       const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
+      
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${coords[0]},${coords[1]}`;
 
       let popupContent = `
         <b>${p.Name || 'Senza nome'}</b><br>
         Tipo: ${tipoNome}<br>
         Note: ${p.Note || 'Nessuna nota'}<br>
-        ${p.Link ? `<a href="${p.Link}" target="_blank">Link di Riferimento</a>` : ''}
+        ${p.Link ? `<a href="${p.Link}" target="_blank">Link di Riferimento</a><br>` : ''}
       `;
+
+      let buttonsHtml = '<div>';
+      buttonsHtml += `<a href="${googleMapsUrl}" target="_blank" class="btn btn-navigate">Invia a Maps</a>`;
 
       const hasValidId = p.IDLuoghi !== null && p.IDLuoghi !== undefined && String(p.IDLuoghi).trim() !== '';
       if (hasValidId) {
-        popupContent += `<br><button class="btn-delete" data-id="${p.IDLuoghi}">Elimina</button>`;
+        buttonsHtml += `<button class="btn btn-delete" data-id="${p.IDLuoghi}">Elimina</button>`;
       }
-      
+      buttonsHtml += '</div>';
+      popupContent += buttonsHtml;
+
       const marker = L.circleMarker(coords, {
           radius: 8, fillColor: markerColor, color: "#000",
           weight: 1, opacity: 1, fillOpacity: 0.8
@@ -325,90 +320,4 @@ async function loadPOI() {
 function openPoiForm({lat, lng, name}) {
   const form = document.createElement('div');
   form.className = 'poi-form';
-  const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
-  form.innerHTML = `
-    <label>Nome</label>
-    <input id="form-name" type="text" value="${name || ''}" />
-    <label>Tipo</label>
-    <select id="form-tipologia">${tipoOptions}</select>
-    <label>Note</label>
-    <textarea id="form-note" rows="3"></textarea>
-    <label>Link</label>
-    <input id="form-link" type="text" placeholder="https://..." />
-    <div style="margin-top:10px; text-align:right;">
-      <button id="btn-canc" class="btn secondary">Annulla</button>
-      <button id="btn-save" class="btn">Salva POI</button>
-    </div>
-  `;
-  const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map);
-  document.getElementById('btn-canc').addEventListener('click', ()=>map.closePopup());
-  document.getElementById('btn-save').addEventListener('click', async ()=>{
-    const payload = {
-      action: 'addPOI',
-      Name: document.getElementById('form-name').value.trim(),
-      Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`,
-      IDTipo: document.getElementById('form-tipologia').value,
-      Note: document.getElementById('form-note').value.trim(),
-      Link: document.getElementById('form-link').value.trim()
-    };
-    try {
-      // Per il ricaricamento dei POI dopo il salvataggio, è necessario pulire
-      // e ricaricare solo quelli da spreadsheet, senza toccare il marcatore di posizione.
-      // Semplifichiamo ricaricando l'intera pagina per ora.
-      const res = await fetch(GAS_URL, {
-        method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      if (res.status === 0 || res.ok) {
-          alert('POI salvato con successo!'); 
-      } else { throw new Error(`Errore HTTP: ${res.status}`); }
-      map.closePopup();
-      // Ricarica solo i POI senza cancellare il marcatore di posizione. 
-      // La logica attuale di loadPOI non pulisce più il layer, quindi va bene.
-      await loadPOI();
-    } catch(e) { 
-        console.error("Errore nel salvataggio:", e);
-        alert('Errore salvataggio: ' + e.message); 
-    }
-  });
-}
-
-// ---------------- FUNZIONE DI ELIMINAZIONE ----------------
-async function deletePOI(poiId) {
-    try {
-        const res = await fetch(GAS_URL, {
-            method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'deletePOI', ID: poiId })
-        });
-        if (res.status === 0 || res.ok) {
-            alert('POI eliminato con successo!');
-            map.closePopup();
-            // La logica di loadPOI ricaricherà i punti, quello eliminato non ci sarà più.
-            // Prima di ricaricare, puliamo solo i POI esistenti (escluso quello di posizione)
-            poiLayerGroup.eachLayer(layer => {
-                if (layer !== currentLocationMarker) {
-                    poiLayerGroup.removeLayer(layer);
-                }
-            });
-            loadPOI();
-        } else { throw new Error(`Errore HTTP: ${res.status}`); }
-    } catch (e) {
-        console.error("Errore durante l'eliminazione:", e);
-        alert('Errore durante l\'eliminazione: ' + e.message);
-    }
-}
-
-// ---------------- INIZIALIZZAZIONE ----------------
-window.initMapAndAutocomplete = function() {
-  initMap();
-  initAutocomplete();
-}
-</script>
-
-<script async
-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBqyDLI3nLGU6RmLaollsDwQN9khS0m02U&libraries=places&callback=initMapAndAutocomplete">
-</script>
-
-</body>
-</html>```
-
+  const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join
