@@ -27,45 +27,56 @@ html, body {
   pointer-events: none;
   z-index: 1000;
 }
-/* Google Search al centro in alto */
+
+/* MODIFICATO: Google Search al centro in alto, reso responsivo */
 #search-container {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100% - 120px); /* Vincolo per non sovrapporsi ai bottoni laterali */
   background: rgba(255,255,255,0.9);
   border-radius: 6px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   padding: 6px 10px;
   pointer-events: auto;
 }
-#pac-input { width: 250px; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+/* MODIFICATO: Input di ricerca reso flessibile */
+#pac-input { 
+    width: 250px; 
+    max-width: 100%; /* Permette all'input di restringersi */
+    box-sizing: border-box; /* Assicura che padding e border non aumentino la larghezza totale */
+    padding: 5px 8px; 
+    border: 1px solid #ccc; 
+    border-radius: 4px; 
+    font-size: 14px; 
+}
 
-/* NUOVO: Stile per il pulsante di refresh in alto a destra */
+/* MODIFICATO: Stile per il pulsante di refresh, ora indipendente */
 #refresh-container {
   position: absolute;
-  top: 0; /* Allineato con gli altri elementi a 10px dal top del body */
+  top: 10px;
   right: 10px;
-  z-index: 1000;
-  pointer-events: auto; /* Abilita i click */
+  z-index: 1001; /* Leggermente più alto per sicurezza */
+  pointer-events: auto;
 }
 
 #refresh-btn {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 42px; /* Dimensione del pulsante */
+  width: 42px;
   height: 42px;
   background: rgba(255, 255, 255, 0.9);
   border-radius: 6px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   text-decoration: none;
-  color: #333; /* Colore dell'icona */
-  font-size: 24px; /* Dimensione dell'icona */
+  color: #333;
+  font-size: 24px;
   border: 1px solid #ccc;
 }
 
 #refresh-btn:hover {
-  background: #f4f4f4; /* Effetto al passaggio del mouse */
+  background: #f4f4f4;
 }
 
 
@@ -83,27 +94,26 @@ html, body {
 }
 #select-localita { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
-/* MODIFICATO: Contenitore per la legenda e il suo pulsante */
+/* Contenitore per la legenda e il suo pulsante */
 #legend-container {
   position: absolute;
   bottom: 10px;
   right: 10px; 
   z-index: 900;
-  text-align: right; /* Allinea il bottone a destra */
+  text-align: right;
 }
 
-/* MODIFICATO: Stile della legenda, ora senza posizionamento diretto */
+/* Stile della legenda */
 #legend {
   background: rgba(255, 255, 255, 0.9);
   padding: 10px;
   border-radius: 5px;
   box-shadow: 0 1px 5px rgba(0,0,0,0.4);
   pointer-events: auto;
-  margin-top: 5px; /* Spazio tra pulsante e legenda */
-  display: none; /* NASCOSTA DI DEFAULT */
+  margin-top: 5px;
+  display: none;
 }
 
-/* AGGIUNTO: Classe per rendere visibile la legenda */
 #legend.visible {
   display: block;
 }
@@ -156,12 +166,13 @@ html, body {
   <div id="search-container">
     <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
   </div>
-  <!-- NUOVO: Contenitore e pulsante di refresh -->
-  <div id="refresh-container">
+</div>
+
+<!-- SPOSTATO: Il contenitore del pulsante di refresh ora è indipendente -->
+<div id="refresh-container">
     <a href="javascript:location.reload();" id="refresh-btn" title="Aggiorna la pagina">
-      &#x21BB; <!-- Codice Unicode per l'icona "freccia circolare in senso orario" -->
+      &#x21BB; <!-- Codice Unicode per l'icona "freccia circolare" -->
     </a>
-  </div>
 </div>
 
 <div id="location-container">
@@ -172,7 +183,6 @@ html, body {
 
 <div id="map"></div>
 
-<!-- MODIFICATO: La legenda ora è dentro un suo contenitore con un pulsante -->
 <div id="legend-container">
   <button id="toggle-legend-btn" class="btn secondary">Legenda</button>
   <div id="legend">
@@ -191,24 +201,18 @@ let currentLocationMarker = null;
 const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
 const DEFAULT_ZOOM = 15;
 
-// AGGIUNTO: Logica per il pulsante della legenda
 document.addEventListener('DOMContentLoaded', () => {
     const toggleLegendBtn = document.getElementById('toggle-legend-btn');
     const legend = document.getElementById('legend');
     
     toggleLegendBtn.addEventListener('click', () => {
-        // Aggiunge o rimuove la classe 'visible' per mostrare/nascondere la legenda
         legend.classList.toggle('visible');
-
-        // Opzionale: cambia il testo del pulsante
         if (legend.classList.contains('visible')) {
             toggleLegendBtn.textContent = 'Nascondi Legenda';
         } else {
             toggleLegendBtn.textContent = 'Mostra Legenda';
         }
     });
-
-    // Imposta il testo iniziale del bottone
     toggleLegendBtn.textContent = 'Mostra Legenda';
 });
 
@@ -462,5 +466,4 @@ src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBqyDLI3nLGU6RmLaollsDwQN9
 </script>
 
 </body>
-</html>```
-
+</html>
