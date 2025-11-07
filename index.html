@@ -54,19 +54,31 @@ html, body {
 }
 #select-localita { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
-/* Legenda in basso a DESTRA */
-#legend {
+/* MODIFICATO: Contenitore per la legenda e il suo pulsante */
+#legend-container {
   position: absolute;
   bottom: 10px;
   right: 10px; 
-  left: auto; 
+  z-index: 900;
+  text-align: right; /* Allinea il bottone a destra */
+}
+
+/* MODIFICATO: Stile della legenda, ora senza posizionamento diretto */
+#legend {
   background: rgba(255, 255, 255, 0.9);
   padding: 10px;
   border-radius: 5px;
   box-shadow: 0 1px 5px rgba(0,0,0,0.4);
   pointer-events: auto;
-  z-index: 900;
+  margin-top: 5px; /* Spazio tra pulsante e legenda */
+  display: none; /* NASCOSTA DI DEFAULT */
 }
+
+/* AGGIUNTO: Classe per rendere visibile la legenda */
+#legend.visible {
+  display: block;
+}
+
 .legend-item {
   display: flex;
   align-items: center;
@@ -111,14 +123,12 @@ html, body {
 </head>
 <body>
 
-<!-- Questo contenitore ora contiene solo la barra di ricerca -->
 <div id="ui-container">
   <div id="search-container">
     <input id="pac-input" type="text" placeholder="Cerca un luogo..." />
   </div>
 </div>
 
-<!-- MODIFICA CHIAVE: Spostato #location-container qui fuori -->
 <div id="location-container">
   <select id="select-localita">
     <option value="">Seleziona Località</option>
@@ -127,23 +137,45 @@ html, body {
 
 <div id="map"></div>
 
-<div id="legend">
-  <strong>Tipologie POI</strong>
-  <div id="legend-content"></div>
+<!-- MODIFICATO: La legenda ora è dentro un suo contenitore con un pulsante -->
+<div id="legend-container">
+  <button id="toggle-legend-btn" class="btn secondary">Legenda</button>
+  <div id="legend">
+    <strong>Tipologie POI</strong>
+    <div id="legend-content"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-// Il codice Javascript rimane invariato...
-// **DEVI SOSTITUIRE QUESTO URL CON QUELLO PUBBLICATO DEL TUO SCRIPT GAS**
+// Il codice Javascript principale rimane invariato...
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbymiOChn9zDPibOCxS_ar3DdnenivPTVhBEJpCedGUlFydU2CiRni8zmpH7ZonYhxPd/exec';
 let map, poiLayerGroup, tipologie = [];
-
 let currentLocationMarker = null;
-
 const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
 const DEFAULT_ZOOM = 15;
+
+// AGGIUNTO: Logica per il pulsante della legenda
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleLegendBtn = document.getElementById('toggle-legend-btn');
+    const legend = document.getElementById('legend');
+    
+    toggleLegendBtn.addEventListener('click', () => {
+        // Aggiunge o rimuove la classe 'visible' per mostrare/nascondere la legenda
+        legend.classList.toggle('visible');
+
+        // Opzionale: cambia il testo del pulsante
+        if (legend.classList.contains('visible')) {
+            toggleLegendBtn.textContent = 'Nascondi Legenda';
+        } else {
+            toggleLegendBtn.textContent = 'Mostra Legenda';
+        }
+    });
+
+    // Imposta il testo iniziale del bottone
+    toggleLegendBtn.textContent = 'Mostra Legenda';
+});
 
 // ---------------- MAPPA E UI ----------------
 function initMap() {
@@ -162,6 +194,8 @@ function initMap() {
     loadPOI();
   });
 }
+
+// ... il resto del codice JavaScript rimane identico ...
 
 // ---------------- POSIZIONE ATTUALE ----------------
 function showCurrentLocation() {
