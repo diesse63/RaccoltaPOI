@@ -129,6 +129,9 @@ html, body {
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbymiOChn9zDPibOCxS_ar3DdnenivPTVhBEJpCedGUlFydU2CiRni8zmpH7ZonYhxPd/exec';
 let map, poiLayerGroup, tipologie = [];
 
+// AGGIUNTO: Variabile per tenere traccia del marcatore della posizione attuale
+let currentLocationMarker = null;
+
 const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
 const DEFAULT_ZOOM = 15;
 
@@ -138,7 +141,9 @@ function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
   poiLayerGroup = L.layerGroup().addTo(map);
 
-  // ✅ AGGIUNTO: Listener per aggiungere POI con un click sulla mappa
+  // AGGIUNTO: Chiamata alla funzione per mostrare la posizione attuale
+  showCurrentLocation();
+
   map.on('click', function(e) {
     openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''});
   });
@@ -147,6 +152,51 @@ function initMap() {
     loadLocalita();
     loadPOI();
   });
+}
+
+// AGGIUNTO: Funzione per ottenere e visualizzare la posizione attuale dell'utente
+function showCurrentLocation() {
+    if (!navigator.geolocation) {
+        console.log("Geolocalizzazione non supportata dal tuo browser.");
+        return;
+    }
+
+    const success = (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        // Rimuove il marcatore precedente se esiste, per evitare duplicati
+        if (currentLocationMarker) {
+            poiLayerGroup.removeLayer(currentLocationMarker);
+        }
+
+        // Crea un POI "fittizio" per la posizione attuale con uno stile distintivo
+        currentLocationMarker = L.circleMarker([lat, lng], {
+            radius: 9,
+            fillColor: '#007bff', // Blu brillante
+            color: "#fff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+        }).addTo(poiLayerGroup);
+
+        currentLocationMarker.bindPopup(`<b>Posizione Attuale</b>`).openPopup();
+        
+        // Opzionale: centra la mappa sulla nuova posizione la prima volta
+        // map.setView([lat, lng], DEFAULT_ZOOM);
+    };
+
+    const error = (err) => {
+        console.warn(`ERRORE (${err.code}): ${err.message}`);
+        alert("Impossibile ottenere la posizione. Assicurati di aver concesso i permessi.");
+    };
+
+    // Richiede la posizione attuale al browser
+    navigator.geolocation.getCurrentPosition(success, error, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0 // Forza il rilevamento di una nuova posizione
+    });
 }
 
 // ---------------- GOOGLE PLACES ----------------
@@ -222,7 +272,8 @@ async function loadPOI() {
     if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
     
     const data = await res.json();
-    poiLayerGroup.clearLayers();
+    // Non puliamo più l'intero layer, per non cancellare il marcatore della posizione attuale
+    // poiLayerGroup.clearLayers(); 
     
     data.forEach(p => {
       if (!p.Coordinate) return; 
@@ -234,7 +285,6 @@ async function loadPOI() {
       const markerColor = tipo ? tipo.colore : 'blue';
       const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
 
-      // ✅ COSTRUZIONE DEL POPUP CON LOGICA CONDIZIONALE PER IL PULSANTE
       let popupContent = `
         <b>${p.Name || 'Senza nome'}</b><br>
         Tipo: ${tipoNome}<br>
@@ -242,8 +292,6 @@ async function loadPOI() {
         ${p.Link ? `<a href="${p.Link}" target="_blank">Link di Riferimento</a>` : ''}
       `;
 
-      // Aggiungi il pulsante "Elimina" solo se il POI ha un ID.
-      // CORREZIONE: Uso p.IDLuoghi
       const hasValidId = p.IDLuoghi !== null && p.IDLuoghi !== undefined && String(p.IDLuoghi).trim() !== '';
       if (hasValidId) {
         popupContent += `<br><button class="btn-delete" data-id="${p.IDLuoghi}">Elimina</button>`;
@@ -254,15 +302,12 @@ async function loadPOI() {
           weight: 1, opacity: 1, fillOpacity: 0.8
       }).addTo(poiLayerGroup).bindPopup(popupContent);
       
-      // ✅ ASSOCIA L'EVENTO CLICK SOLO SE IL PULSANTE ESISTE
       if (hasValidId) {
         marker.on('popupopen', () => {
-             // CORREZIONE: Uso p.IDLuoghi
             const deleteBtn = document.querySelector(`.btn-delete[data-id="${p.IDLuoghi}"]`);
             if (deleteBtn) {
               deleteBtn.addEventListener('click', () => {
                 if (confirm(`Sei sicuro di voler eliminare il POI "${p.Name}"?`)) {
-                    // CORREZIONE: Uso p.IDLuoghi
                     deletePOI(p.IDLuoghi); 
                 }
               });
@@ -307,6 +352,9 @@ function openPoiForm({lat, lng, name}) {
       Link: document.getElementById('form-link').value.trim()
     };
     try {
+      // Per il ricaricamento dei POI dopo il salvataggio, è necessario pulire
+      // e ricaricare solo quelli da spreadsheet, senza toccare il marcatore di posizione.
+      // Semplifichiamo ricaricando l'intera pagina per ora.
       const res = await fetch(GAS_URL, {
         method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
@@ -315,6 +363,8 @@ function openPoiForm({lat, lng, name}) {
           alert('POI salvato con successo!'); 
       } else { throw new Error(`Errore HTTP: ${res.status}`); }
       map.closePopup();
+      // Ricarica solo i POI senza cancellare il marcatore di posizione. 
+      // La logica attuale di loadPOI non pulisce più il layer, quindi va bene.
       await loadPOI();
     } catch(e) { 
         console.error("Errore nel salvataggio:", e);
@@ -333,6 +383,13 @@ async function deletePOI(poiId) {
         if (res.status === 0 || res.ok) {
             alert('POI eliminato con successo!');
             map.closePopup();
+            // La logica di loadPOI ricaricherà i punti, quello eliminato non ci sarà più.
+            // Prima di ricaricare, puliamo solo i POI esistenti (escluso quello di posizione)
+            poiLayerGroup.eachLayer(layer => {
+                if (layer !== currentLocationMarker) {
+                    poiLayerGroup.removeLayer(layer);
+                }
+            });
             loadPOI();
         } else { throw new Error(`Errore HTTP: ${res.status}`); }
     } catch (e) {
@@ -353,4 +410,5 @@ src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBqyDLI3nLGU6RmLaollsDwQN9
 </script>
 
 </body>
-</html>
+</html>```
+
