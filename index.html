@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mappa POI Interattiva</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="icon" href="data:;base64,iVBORw0KGgo="> <!-- Aggiunto favicon di default per evitare errori 404 -->
 <style>
-/* ... (il CSS è invariato, lo includo per completezza) ... */
+/* ... (il CSS rimane invariato) ... */
 html,body{height:100%;margin:0;font-family:Arial,sans-serif}#map{height:100%;width:100%}#ui-container{position:absolute;top:10px;width:100%;pointer-events:none;z-index:1000}#search-container{position:absolute;left:50%;transform:translateX(-50%);max-width:calc(100% - 120px);background:rgba(255,255,255,.9);border-radius:6px;box-shadow:0 2px 5px rgba(0,0,0,.2);padding:6px 10px;pointer-events:auto}#pac-input{width:250px;max-width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:14px}#refresh-container{position:absolute;top:10px;right:10px;z-index:1001;pointer-events:auto}#refresh-btn{display:flex;justify-content:center;align-items:center;width:42px;height:42px;background:rgba(255,255,255,.9);border-radius:6px;box-shadow:0 2px 5px rgba(0,0,0,.2);text-decoration:none;color:#333;font-size:24px;border:1px solid #ccc}#refresh-btn:hover{background:#f4f4f4}#bottom-left-controls{position:absolute;bottom:10px;left:10px;z-index:900;display:flex;align-items:flex-end;gap:10px}#poi-table-container-wrapper{position:relative;text-align:left}#legend-container{position:absolute;bottom:10px;right:10px;z-index:900;text-align:right}#legend{background:rgba(255,255,255,.9);padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,.4);margin-top:5px;display:none}#legend.visible{display:block}.legend-item{display:flex;align-items:center;margin-bottom:5px;font-size:14px}.legend-color{width:18px;height:18px;border-radius:50%;margin-right:8px;border:1px solid #555}#poi-table-wrapper{position:absolute;bottom:100%;margin-bottom:5px;background:rgba(255,255,255,.9);padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,.4);pointer-events:auto;display:none;max-height:300px;overflow-y:auto;width:350px}#poi-table-wrapper.visible{display:block}#poi-table{width:100%;border-collapse:collapse}#poi-table th,#poi-table td{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px}#poi-table th{background-color:#f2f2f2}.btn-select-poi{padding:4px 8px;font-size:12px;background-color:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer}.btn-select-poi:hover{background-color:#218838}.poi-form label{display:block;margin:8px 0 3px;font-weight:700;font-size:14px}.poi-form input,.poi-form textarea,.poi-form select{width:100%;padding:6px;border-radius:4px;border:1px solid #ccc;box-sizing:border-box}.poi-form textarea{resize:vertical}.poi-form input:disabled{background-color:#e9ecef;cursor:not-allowed;opacity:1}.btn{display:inline-block;padding:6px 10px;border-radius:4px;border:none;cursor:pointer;color:#fff;text-decoration:none;margin-top:8px;margin-right:5px}.btn.primary{background:#1976d2}.btn.secondary{background:#6c757d}.btn-delete{background-color:#dc3545}.btn-navigate{background-color:#28a745}.btn-edit{background-color:#ffc107;color:#212529}
 </style>
 </head>
@@ -29,7 +30,25 @@ let markerReferences = {};
 let poiDataStore = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    const toggleLegendBtn = document.getElementById('toggle-legend-btn'); const legend = document.getElementById('legend'); toggleLegendBtn.addEventListener('click', () => { legend.classList.toggle('visible'); toggleLegendBtn.textContent = legend.classList.contains('visible') ? 'Nascondi Legenda' : 'Mostra Legenda'; }); toggleLegendBtn.textContent = 'Mostra Legenda'; const togglePoiTableBtn = document.getElementById('toggle-poi-table-btn'); const poiTableWrapper = document.getElementById('poi-table-wrapper'); togglePoiTableBtn.addEventListener('click', async () => { poiTableWrapper.classList.toggle('visible'); togglePoiTableBtn.textContent = poiTableWrapper.classList.contains('visible') ? 'Nascondi Elenco' : 'Mostra POI'; if (poiTableWrapper.classList.contains('visible') && !poiTableWrapper.querySelector('#poi-table')) { await populatePoiTable(); } });
+    const toggleLegendBtn = document.getElementById('toggle-legend-btn');
+    const legend = document.getElementById('legend');
+    toggleLegendBtn.addEventListener('click', () => {
+        legend.classList.toggle('visible');
+        toggleLegendBtn.textContent = legend.classList.contains('visible') ? 'Nascondi Legenda' : 'Mostra Legenda';
+    });
+    toggleLegendBtn.textContent = 'Mostra Legenda';
+
+    const togglePoiTableBtn = document.getElementById('toggle-poi-table-btn');
+    const poiTableWrapper = document.getElementById('poi-table-wrapper');
+    togglePoiTableBtn.addEventListener('click', async () => {
+        poiTableWrapper.classList.toggle('visible');
+        togglePoiTableBtn.textContent = poiTableWrapper.classList.contains('visible') ? 'Nascondi Elenco' : 'Mostra POI';
+        
+        // MODIFICA: La tabella viene ricaricata ogni volta che il pannello viene mostrato
+        if (poiTableWrapper.classList.contains('visible')) {
+            await populatePoiTable();
+        }
+    });
 });
 
 function initMap() {
@@ -37,7 +56,10 @@ function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
   poiLayerGroup = L.layerGroup().addTo(map);
   showCurrentLocation();
-  map.on('click', (e) => openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''}));
+  
+  // MODIFICA: Cambiato da 'click' a 'dblclick' (doppio click) per aggiungere un POI
+  map.on('dblclick', (e) => openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''}));
+  
   loadTipologie().then(() => loadPOI());
 }
 
@@ -171,9 +193,55 @@ function openPoiEditForm(poiId) {
 }
 
 function showCurrentLocation() { if (!navigator.geolocation) return; navigator.geolocation.getCurrentPosition((position) => { const { latitude, longitude } = position.coords; if (currentLocationMarker) currentLocationMarker.remove(); currentLocationMarker = L.circleMarker([latitude, longitude], { radius: 9, fillColor: '#007bff', color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9 }).addTo(poiLayerGroup); currentLocationMarker.bindPopup(`<b>La tua Posizione</b>`).openPopup(); }, (err) => console.warn(`ERRORE (${err.code}): ${err.message}`));}
+
+// TODO: Google consiglia di migrare da 'Autocomplete' a 'PlaceAutocompleteElement' per le nuove implementazioni.
+// Il codice attuale continuerà a funzionare ma non riceverà nuove feature.
+// Info: https://developers.google.com/maps/documentation/javascript/places-migration-overview
 function initAutocomplete() { const input = document.getElementById("pac-input"); const autocomplete = new google.maps.places.Autocomplete(input); autocomplete.addListener("place_changed", () => { const place = autocomplete.getPlace(); if (!place.geometry) return; const { lat, lng } = place.geometry.location; map.setView([lat(), lng()], DEFAULT_ZOOM); openPoiForm({lat: lat(), lng: lng(), name: place.name}); });}
 async function loadTipologie() { try { const res = await fetch(`${GAS_URL}?action=listTipologia`); const data = await res.json(); tipologie = data.map(t => ({ id: String(t.IDTipo).trim(), nome: t.Tipo, colore: t.Colore ? String(t.Colore).toLowerCase() : 'gray' })); const legendContent = document.getElementById('legend-content'); legendContent.innerHTML = ''; tipologie.forEach(t => { if (!t.nome || t.nome.trim() === '') return; legendContent.innerHTML += `<div class="legend-item"><span class="legend-color" style="background-color: ${t.colore};"></span>${t.nome}</div>`; }); } catch(e) { console.error("Errore caricamento tipologie:", e); }}
-async function populatePoiTable() { const poiTableWrapper = document.getElementById('poi-table-wrapper'); poiTableWrapper.innerHTML = '<p>Caricamento dati...</p>'; try { if (tipologie.length === 0) await loadTipologie(); const data = poiDataStore; let tableHtml = `<table id="poi-table"><thead><tr><th>Nome</th><th>Tipologia</th><th>Azione</th></tr></thead><tbody>`; if (data.length === 0) { tableHtml += `<tr><td colspan="3">Nessun POI trovato.</td></tr>`; } else { data.forEach(p => { const tipo = tipologie.find(t => String(t.id).trim() === String(p.IDTipo).trim()); const tipoNome = tipo ? tipo.nome : 'Sconosciuto'; const coords = String(p.Coordinate).split(',').map(Number); let selectBtnHtml = '<td></td>'; if (p.IDLuoghi && coords.length === 2 && !isNaN(coords[0])) { selectBtnHtml = `<td><button class="btn-select-poi" data-id="${p.IDLuoghi}" data-lat="${coords[0]}" data-lng="${coords[1]}">Seleziona</button></td>`; } tableHtml += `<tr><td>${p.Name || 'Senza nome'}</td><td>${tipoNome}</td>${selectBtnHtml}</tr>`; }); } poiTableWrapper.innerHTML = tableHtml + `</tbody></table>`; poiTableWrapper.querySelector('tbody').addEventListener('click', (event) => { if (event.target?.classList.contains('btn-select-poi')) { const { lat, lng, id } = event.target.dataset; map.setView([lat, lng], DEFAULT_ZOOM + 1); markerReferences[id]?.openPopup(); poiTableWrapper.classList.remove('visible'); document.getElementById('toggle-poi-table-btn').textContent = 'Mostra POI'; } }); } catch (e) { console.error("Errore tabella POI:", e); }}
+async function populatePoiTable() {
+    const poiTableWrapper = document.getElementById('poi-table-wrapper');
+    poiTableWrapper.innerHTML = '<p>Aggiornamento dati...</p>';
+    try {
+        if (tipologie.length === 0) await loadTipologie();
+        
+        // MODIFICA: Clona e ordina i dati alfabeticamente per nome prima di visualizzarli
+        const sortedData = [...poiDataStore].sort((a, b) => {
+            const nameA = a.Name || '';
+            const nameB = b.Name || '';
+            return nameA.localeCompare(nameB);
+        });
+
+        let tableHtml = `<table id="poi-table"><thead><tr><th>Nome</th><th>Tipologia</th><th>Azione</th></tr></thead><tbody>`;
+        if (sortedData.length === 0) {
+            tableHtml += `<tr><td colspan="3">Nessun POI trovato.</td></tr>`;
+        } else {
+            sortedData.forEach(p => {
+                const tipo = tipologie.find(t => String(t.id).trim() === String(p.IDTipo).trim());
+                const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
+                const coords = String(p.Coordinate).split(',').map(Number);
+                let selectBtnHtml = '<td></td>';
+                if (p.IDLuoghi && coords.length === 2 && !isNaN(coords[0])) {
+                    selectBtnHtml = `<td><button class="btn-select-poi" data-id="${p.IDLuoghi}" data-lat="${coords[0]}" data-lng="${coords[1]}">Seleziona</button></td>`;
+                }
+                tableHtml += `<tr><td>${p.Name || 'Senza nome'}</td><td>${tipoNome}</td>${selectBtnHtml}</tr>`;
+            });
+        }
+        poiTableWrapper.innerHTML = tableHtml + `</tbody></table>`;
+        poiTableWrapper.querySelector('tbody').addEventListener('click', (event) => {
+            if (event.target?.classList.contains('btn-select-poi')) {
+                const { lat, lng, id } = event.target.dataset;
+                map.setView([lat, lng], DEFAULT_ZOOM + 1);
+                markerReferences[id]?.openPopup();
+                poiTableWrapper.classList.remove('visible');
+                document.getElementById('toggle-poi-table-btn').textContent = 'Mostra POI';
+            }
+        });
+    } catch (e) {
+        console.error("Errore tabella POI:", e);
+        poiTableWrapper.innerHTML = '<p>Errore nel caricamento dei dati.</p>';
+    }
+}
 function openPoiForm({lat, lng, name}) { const form = document.createElement('div'); form.className = 'poi-form'; const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join(''); form.innerHTML = `<label>Nome</label><input id="form-name" type="text" value="${name || ''}" /><label>Tipo</label><select id="form-tipologia">${tipoOptions}</select><label>Note</label><textarea id="form-note" rows="3"></textarea><label>Link</label><input id="form-link" type="text" placeholder="https://..." /><div style="margin-top:10px; text-align:right;"><button id="btn-canc" class="btn secondary">Annulla</button><button id="btn-save" class="btn primary">Salva</button></div>`; const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map); document.getElementById('btn-canc').addEventListener('click', () => map.closePopup()); document.getElementById('btn-save').addEventListener('click', () => { const payload = { action: 'addPOI', Name: document.getElementById('form-name').value.trim(), Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`, IDTipo: document.getElementById('form-tipologia').value, Note: document.getElementById('form-note').value.trim(), Link: document.getElementById('form-link').value.trim() }; addPOI(payload); });}
 async function sendPostRequest(payload) { try { await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', cache: 'no-cache', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }); return true; } catch (e) { console.error(`Errore durante l'azione '${payload.action}':`, e); alert(`Errore durante l'azione '${payload.action}': ${e.message}`); return false; }}
 async function addPOI(payload) { const success = await sendPostRequest(payload); if (success) { alert('POI salvato!'); map.closePopup(); await loadPOI(); if (document.getElementById('poi-table-wrapper').classList.contains('visible')) await populatePoiTable(); }}
@@ -188,4 +256,3 @@ window.initMapAndAutocomplete = function() {
 <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBqyDLI3nLGU6RmLaollsDwQN9khS0m02U&libraries=places&callback=initMapAndAutocomplete"></script>
 </body>
 </html>
-Use Arrow Up and Arrow Down to select a turn, Enter to jump to it, and Escape to return to the chat.
